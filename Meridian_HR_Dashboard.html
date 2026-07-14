@@ -1,0 +1,1530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian Analytics — HR People Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root {
+    --navy:        #1E3A5F;
+    --navy-deep:   #142a47;
+    --navy-mid:    #2D4F7A;
+    --green:       #2DA67A;
+    --green-deep:  #1F8460;
+    --amber:       #F2A035;
+    --amber-deep:  #B9711A;
+    --amber-soft:  #F5C078;
+    --red:         #C8534A;
+    --red-deep:    #A23A32;
+    --red-soft:    #E89994;
+    --charcoal:    #1A1F2B;
+    --slate:       #5A6478;
+    --slate-soft:  #8A93A4;
+    --mist:        #F4F6F8;
+    --cream:       #FAF8F4;
+    --white:       #FFFFFF;
+    --line:        #E5E8EE;
+    --line-strong: #C8CDD7;
+
+    /* chart data-ink roles (validated categorical set, see dataviz skill) */
+    --series-1: #2a78d6; /* blue   — primary / IC / Voluntary */
+    --series-2: #1baf7a; /* aqua   — Mgmt / secondary source */
+    --series-3: #eda100; /* yellow — caution / tertiary source */
+    --series-4: #008300; /* green  — Involuntary / quaternary source */
+    --series-5: #4a3aa7; /* violet — extra source bucket */
+    --series-6: #e34948; /* red    — extra source bucket */
+    --series-7: #e87ba4; /* magenta*/
+    --series-8: #eb6834; /* orange */
+    --seq-100: #cde2fb;
+    --seq-300: #6da7ec;
+    --seq-450: #2a78d6;
+    --seq-600: #184f95;
+    --status-good: #0ca30c;
+    --status-warning: #b9711a;
+    --status-critical: #d03b3b;
+    --grid-hairline: #e1e0d9;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--cream);
+    color: var(--charcoal);
+    font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .serif { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; }
+  .serif-i { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; }
+  .mono, .num { font-family: 'IBM Plex Mono', monospace; font-feature-settings: 'tnum' 1; }
+
+  a { color: inherit; }
+  button { font-family: inherit; font-size: inherit; cursor: pointer; }
+
+  .app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+
+  /* ============ SIDEBAR ============ */
+  .sidebar { background: var(--navy-deep); color: #cfd5e0; padding: 28px 0 24px 0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .brand { padding: 0 24px 24px 24px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .brand-mark { display: flex; align-items: baseline; gap: 6px; }
+  .brand-mark .m { font-family: 'Instrument Serif', serif; font-size: 34px; color: white; line-height: 1; }
+  .brand-mark .line { width: 22px; height: 1.5px; background: var(--green); margin-left: -2px; margin-bottom: 6px; }
+  .brand-name { font-size: 11px; font-weight: 500; letter-spacing: 0.16em; color: white; text-transform: uppercase; margin-top: 8px; }
+  .brand-sub { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 13px; color: var(--slate-soft); margin-top: 4px; }
+
+  .nav { padding: 20px 0; }
+  .nav-section-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.16em; color: rgba(255,255,255,0.42); padding: 0 24px 8px 24px; font-weight: 600; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 24px; color: rgba(255,255,255,0.76); font-size: 13px; cursor: pointer; border-left: 2px solid transparent; border: none; background: none; width: 100%; text-align: left; }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: white; }
+  .nav-item.active { background: rgba(255,255,255,0.06); color: white; border-left-color: var(--green); font-weight: 500; }
+  .nav-item svg { flex-shrink: 0; opacity: 0.7; }
+  .nav-item.active svg { opacity: 1; }
+
+  .status-box { margin: auto 16px 0 16px; padding: 14px 16px; background: rgba(45,166,122,0.08); border-left: 2px solid var(--green); border-radius: 2px; }
+  .status-box .label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--green); font-weight: 600; margin-bottom: 6px; }
+  .status-box .line { font-size: 11px; color: rgba(255,255,255,0.85); line-height: 1.5; word-break: break-word; }
+  .status-box .line + .line { margin-top: 2px; }
+  .status-box .muted { color: rgba(255,255,255,0.4); }
+
+  /* ============ MAIN ============ */
+  .main { padding: 0; background: var(--cream); min-width: 0; }
+
+  .control-bar {
+    padding: 18px 32px;
+    background: var(--white);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .upload-group { display: flex; align-items: center; gap: 8px; }
+  .upload-group .ug-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--slate); font-weight: 600; }
+  .file-btn { background: var(--mist); border: 1px solid var(--line-strong); color: var(--navy); padding: 7px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+  .file-btn:hover { background: var(--line); }
+  .file-chip { font-size: 11.5px; color: var(--slate); max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-chip.loaded { color: var(--navy); font-weight: 500; }
+  input[type="file"] { display: none; }
+
+  .btn { border: none; border-radius: 4px; padding: 9px 18px; font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; }
+  .btn-primary { background: var(--green); color: white; }
+  .btn-primary:hover { background: var(--green-deep); }
+  .btn-primary:disabled { background: var(--slate-soft); cursor: not-allowed; }
+  .btn-secondary { background: var(--white); color: var(--navy); border: 1px solid var(--line-strong); }
+  .btn-secondary:hover { background: var(--mist); }
+  .btn-secondary:disabled { color: var(--slate-soft); border-color: var(--line); cursor: not-allowed; }
+  .spacer { flex: 1; }
+
+  .error-banner {
+    margin: 0 32px;
+    margin-top: 14px;
+    background: #FBEAE8;
+    border: 1px solid var(--red-soft);
+    border-left: 3px solid var(--red);
+    border-radius: 4px;
+    padding: 12px 16px;
+    display: none;
+  }
+  .error-banner.show { display: block; }
+  .error-banner .eb-title { font-size: 12px; font-weight: 700; color: var(--red-deep); margin-bottom: 6px; }
+  .error-banner ul { padding-left: 18px; }
+  .error-banner li { font-size: 12px; color: var(--charcoal); margin-bottom: 3px; }
+
+  /* ============ TAB PANELS ============ */
+  .tab-panel { display: none; padding: 24px 32px 40px 32px; }
+  .tab-panel.active { display: block; }
+
+  .panel-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 18px; flex-wrap: wrap; gap: 14px; }
+  .panel-header .eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--slate); font-weight: 600; margin-bottom: 6px; }
+  .panel-header h1 { font-family: 'Instrument Serif', serif; font-size: 28px; font-weight: 400; color: var(--navy); line-height: 1; }
+  .panel-header .deck { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 14px; color: var(--slate); margin-top: 6px; }
+
+  .filter-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .filter-bar label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--slate); font-weight: 600; margin-right: 4px; }
+  .filter-bar select {
+    background: var(--white); border: 1px solid var(--line-strong); border-radius: 4px;
+    padding: 7px 10px; font-size: 12.5px; color: var(--navy); font-family: inherit;
+  }
+  .filter-clear { font-size: 11.5px; color: var(--navy-mid); text-decoration: underline; background: none; border: none; padding: 0; }
+
+  /* KPI strip */
+  .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .kpi-card { background: var(--white); border: 1px solid var(--line); border-radius: 6px; padding: 16px 16px 14px 16px; min-height: 100px; }
+  .kpi-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--slate); font-weight: 600; line-height: 1.3; margin-bottom: 10px; min-height: 26px; }
+  .kpi-card .value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 500; color: var(--navy); line-height: 1; letter-spacing: -0.01em; }
+  .kpi-card .value .unit { font-size: 12px; font-weight: 400; color: var(--slate); margin-left: 2px; }
+  .kpi-card .sub { margin-top: 8px; font-size: 11px; color: var(--slate); }
+  .kpi-card.flag-good .value { color: var(--status-good); }
+  .kpi-card.flag-warning .value { color: var(--status-warning); }
+  .kpi-card.flag-critical .value { color: var(--status-critical); }
+
+  /* Chart / detail cards */
+  .card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .card-grid.single { grid-template-columns: 1fr; }
+  .card-grid.thirds { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 1180px) { .card-grid, .card-grid.thirds { grid-template-columns: 1fr; } }
+
+  .card { background: var(--white); border: 1px solid var(--line); border-radius: 6px; padding: 18px; margin-bottom: 16px; }
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; gap: 10px; }
+  .card-head h3 { font-family: 'Instrument Serif', serif; font-size: 19px; font-weight: 400; color: var(--navy); line-height: 1.15; }
+  .card-head .h-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .toggle-btn { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--slate); background: var(--mist); border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px; }
+  .toggle-btn.active { color: var(--navy); background: var(--line); font-weight: 600; }
+  .card .desc { font-size: 11.5px; color: var(--slate); line-height: 1.45; margin-bottom: 12px; font-style: italic; font-family: 'Instrument Serif', serif; font-size: 13px; }
+
+  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap.short { height: 200px; }
+
+  .legend-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: var(--slate); }
+  .legend-row .lg-item { display: flex; align-items: center; gap: 6px; }
+  .legend-row .sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  .formula-box { background: var(--mist); border-left: 2px solid var(--navy-mid); padding: 10px 12px; border-radius: 0 4px 4px 0; font-size: 11px; color: var(--navy); line-height: 1.6; margin-top: 12px; }
+  .formula-box .formula-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--slate); font-weight: 700; margin-bottom: 4px; }
+  .formula-box .formula { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; }
+
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.data-table th, table.data-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+  table.data-table th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--slate); font-weight: 600; cursor: default; user-select: none; }
+  table.data-table th.sortable { cursor: pointer; }
+  table.data-table th.sortable:hover { color: var(--navy); }
+  table.data-table th .arrow { font-size: 9px; margin-left: 3px; opacity: 0.5; }
+  table.data-table td.num { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+  table.data-table tbody tr:hover { background: var(--mist); }
+  .table-scroll { max-height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; }
+  .table-scroll table.data-table th { position: sticky; top: 0; background: var(--white); }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 600; }
+  .badge-expert { background: rgba(11,131,0,0.12); color: var(--status-good); }
+  .badge-proficient { background: rgba(42,120,214,0.12); color: var(--series-1); }
+  .badge-developing { background: rgba(237,161,0,0.15); color: var(--amber-deep); }
+  .badge-novice { background: rgba(208,59,59,0.12); color: var(--status-critical); }
+
+  .empty-state { text-align: center; padding: 70px 24px; background: var(--white); border: 1px dashed var(--line-strong); border-radius: 6px; }
+  .empty-state .es-icon { font-size: 34px; margin-bottom: 12px; }
+  .empty-state h3 { font-family: 'Instrument Serif', serif; font-size: 22px; color: var(--navy); font-weight: 400; margin-bottom: 8px; }
+  .empty-state p { font-size: 12.5px; color: var(--slate); max-width: 420px; margin: 0 auto 16px auto; }
+
+  .note-band { margin-top: 6px; background: var(--mist); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; font-size: 11.5px; color: var(--slate); }
+  .note-band b { color: var(--navy); }
+
+  .search-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .search-row input[type="text"] { flex: 1; min-width: 160px; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 4px; font-size: 12.5px; font-family: inherit; }
+  .search-row select { padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: 4px; font-size: 12.5px; font-family: inherit; color: var(--navy); }
+
+  .currency-block + .currency-block { margin-top: 18px; }
+  .currency-block .cb-title { font-size: 11px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+
+  @media print {
+    .control-bar, .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark"><span class="m">M</span><span class="line"></span></div>
+      <div class="brand-name">MERIDIAN ANALYTICS</div>
+      <div class="brand-sub">people dashboard</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section-label">Views</div>
+      <button class="nav-item active" data-tab="executive" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Executive Dashboard
+      </button>
+      <button class="nav-item" data-tab="ld" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L4 7v10l8 5 8-5V7z"/><path d="M12 22V12"/><path d="M20 7l-8 5-8-5"/></svg>
+        Learning &amp; Development
+      </button>
+      <button class="nav-item" data-tab="comp" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Compensation &amp; Recruitment
+      </button>
+    </nav>
+    <div class="status-box" id="statusBox">
+      <div class="label">Data currently loaded</div>
+      <div class="line muted" id="statusLine">No files loaded yet</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="control-bar">
+      <div class="upload-group">
+        <span class="ug-label">Employee Master</span>
+        <label class="file-btn" for="masterFileInput">Choose file</label>
+        <input type="file" id="masterFileInput" accept=".xlsx,.xls,.csv">
+        <span class="file-chip" id="masterFileChip">required — none loaded</span>
+      </div>
+      <div class="upload-group">
+        <span class="ug-label">AI Readiness Results</span>
+        <label class="file-btn" for="aiFileInput">Choose file</label>
+        <input type="file" id="aiFileInput" accept=".xlsx,.xls">
+        <span class="file-chip" id="aiFileChip">optional — none loaded</span>
+      </div>
+      <button class="btn btn-primary" id="updateBtn" disabled>Update</button>
+      <div class="spacer"></div>
+      <button class="btn btn-secondary" id="downloadBtn" disabled>Download Report</button>
+    </div>
+    <div class="error-banner" id="errorBanner">
+      <div class="eb-title" id="errorBannerTitle">Could not process file</div>
+      <ul id="errorBannerList"></ul>
+    </div>
+
+    <section class="tab-panel active" id="tab-executive"></section>
+    <section class="tab-panel" id="tab-ld"></section>
+    <section class="tab-panel" id="tab-comp"></section>
+  </main>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================================
+   CONFIG
+   ========================================================================= */
+const REQUIRED_MASTER_COLUMNS = [
+  'employee_id','employment_status','department','function','office_location',
+  'career_track','career_level','hire_date','termination_date','termination_type',
+  'base_salary','currency','compa_ratio','range_penetration','target_bonus_pct',
+  'last_promotion_date','source_of_hire'
+];
+const DEMOGRAPHIC_FIELDS = ['gender','race_ethnicity','veteran_status','disability_self_id'];
+const AI_REQUIRED_COLUMNS = ['Emp ID','Name','Title','Level','Overall Score','Tier'];
+const AI_SHEET_NAME = 'Individual Results';
+const MASTER_SHEET_NAME = 'Employee Master';
+const LEVEL_ORDER = ['P1','P2','P3','P4','P5','P6','P7','M1','M2','M3','M4','M5','M6','M7','M8'];
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const COLORS = {
+  series: ['#2a78d6','#1baf7a','#eda100','#008300','#4a3aa7','#e34948','#e87ba4','#eb6834'],
+  sequential: '#2a78d6',
+  good: '#0ca30c',
+  warning: '#b9711a',
+  critical: '#d03b3b',
+  grid: '#e1e0d9',
+  ink: '#5A6478',
+  inkMuted: '#8A93A4'
+};
+
+Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+Chart.defaults.font.size = 11.5;
+Chart.defaults.color = COLORS.ink;
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.boxWidth = 8;
+Chart.defaults.plugins.legend.labels.boxHeight = 8;
+
+/* =========================================================================
+   STATE
+   ========================================================================= */
+const state = {
+  masterFile: null,       // File object staged (not yet processed)
+  aiFile: null,
+  masterFileName: null,   // filename of the LAST SUCCESSFULLY PROCESSED file
+  aiFileName: null,
+  masterRows: [],         // parsed + validated + demographic-stripped rows
+  aiRows: [],
+  lastUpdated: null,
+  filters: { department: '', location: '' },
+  ldFilters: { search: '', tier: '' },
+  ldSort: { key: 'overallScore', dir: 'desc' },
+  activeTab: 'executive',
+  charts: {}              // canvasId -> Chart.js instance
+};
+
+/* =========================================================================
+   GENERIC UTILITIES
+   ========================================================================= */
+function $(sel, root) { return (root || document).querySelector(sel); }
+function $all(sel, root) { return Array.from((root || document).querySelectorAll(sel)); }
+function el(tag, attrs, children) {
+  const e = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    if (k === 'class') e.className = attrs[k];
+    else if (k === 'html') e.innerHTML = attrs[k];
+    else e.setAttribute(k, attrs[k]);
+  }
+  (children || []).forEach(c => e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
+  return e;
+}
+function normKey(s) { return String(s == null ? '' : s).trim(); }
+function normLower(s) { return normKey(s).toLowerCase(); }
+function isBlankRow(row) {
+  return Object.values(row).every(v => v === null || v === undefined || String(v).trim() === '');
+}
+function average(arr) { return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0; }
+function sum(arr) { return arr.reduce((a, b) => a + b, 0); }
+function groupBy(rows, keyFn) {
+  const map = new Map();
+  for (const r of rows) {
+    const k = keyFn(r);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(r);
+  }
+  return map;
+}
+function fmtInt(n) { return Math.round(n).toLocaleString('en-US'); }
+function fmtPct(n, digits) { return (n * 100).toFixed(digits == null ? 1 : digits) + '%'; }
+function fmtMoney(n, currency) {
+  if (n == null || isNaN(n)) return '—';
+  return (currency ? currency + ' ' : '') + Math.round(n).toLocaleString('en-US');
+}
+function fmtDate(d) {
+  if (!(d instanceof Date) || isNaN(d)) return '—';
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+function addDays(date, days) { return new Date(date.getTime() + days * MS_PER_DAY); }
+function levelSortIndex(level) {
+  const i = LEVEL_ORDER.indexOf(level);
+  return i === -1 ? 999 : i;
+}
+/* rank: 0 (best-scoring tier) .. 1 (worst-scoring tier), from computeLd's tierRank map. */
+function tierClassByRank(rank) {
+  if (rank == null) return 'badge-novice';
+  if (rank <= 0.25) return 'badge-expert';
+  if (rank <= 0.5) return 'badge-proficient';
+  if (rank <= 0.75) return 'badge-developing';
+  return 'badge-novice';
+}
+
+/* Parse a date-ish cell (Date object from SheetJS cellDates, Excel serial number,
+   or a plain string from CSV) into a JS Date or null if unparseable/blank. */
+function parseDateCell(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date) return isNaN(v) ? null : v;
+  if (typeof v === 'number') {
+    // Excel serial date fallback (in case cellDates conversion didn't apply)
+    const parsed = XLSX.SSF ? XLSX.SSF.parse_date_code(v) : null;
+    if (parsed) return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
+    return null;
+  }
+  const str = String(v).trim();
+  if (!str) return null;
+  const d = new Date(str);
+  if (!isNaN(d)) return d;
+  const m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    const d2 = new Date(+m[3] < 100 ? 2000 + (+m[3]) : +m[3], +m[1] - 1, +m[2]);
+    if (!isNaN(d2)) return d2;
+  }
+  return null;
+}
+function parseNumberCell(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return v;
+  const n = parseFloat(String(v).replace(/[,%$]/g, ''));
+  return isNaN(n) ? null : n;
+}
+/* =========================================================================
+   FILE PARSING
+   ========================================================================= */
+function readFileAsWorkbook(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read file "' + file.name + '".'));
+    const isCsv = /\.csv$/i.test(file.name);
+    reader.onload = (e) => {
+      try {
+        const wb = isCsv
+          ? XLSX.read(e.target.result, { type: 'string', cellDates: true })
+          : XLSX.read(e.target.result, { type: 'array', cellDates: true });
+        resolve(wb);
+      } catch (err) {
+        reject(new Error('"' + file.name + '" is not a valid Excel/CSV file (' + err.message + ').'));
+      }
+    };
+    if (isCsv) reader.readAsText(file);
+    else reader.readAsArrayBuffer(file);
+  });
+}
+
+function pickSheet(workbook, preferredName) {
+  const names = workbook.SheetNames;
+  const match = names.find(n => normLower(n) === normLower(preferredName));
+  return match ? workbook.Sheets[match] : workbook.Sheets[names[0]];
+}
+
+/* Scan the first few rows of a sheet to find the real header row — handles
+   files with a title row and/or a category-grouping row above the field names. */
+function detectHeaderRow(aoa, knownHeaders) {
+  const knownLower = knownHeaders.map(normLower);
+  let bestIdx = 0, bestScore = -1;
+  for (let i = 0; i < Math.min(6, aoa.length); i++) {
+    const row = aoa[i] || [];
+    const score = row.reduce((acc, cell) => acc + (knownLower.includes(normLower(cell)) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; bestIdx = i; }
+  }
+  return { headerRowIdx: bestIdx, matchScore: bestScore };
+}
+
+/* Convert a worksheet into an array of {field: value} row objects, plus the
+   1-based spreadsheet row number each object came from (for error messages). */
+function sheetToRowObjects(sheet, knownHeaders) {
+  const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null, blankrows: false });
+  if (!aoa.length) return { rows: [], headers: [] };
+  const { headerRowIdx } = detectHeaderRow(aoa, knownHeaders);
+  const headers = (aoa[headerRowIdx] || []).map(normKey);
+  const rows = [];
+  for (let i = headerRowIdx + 1; i < aoa.length; i++) {
+    const raw = aoa[i];
+    if (!raw) continue;
+    const obj = {};
+    let hasValue = false;
+    headers.forEach((h, colIdx) => {
+      if (!h) return;
+      const v = raw[colIdx];
+      if (v !== null && v !== undefined && v !== '') hasValue = true;
+      obj[h] = v === undefined ? null : v;
+    });
+    if (!hasValue) continue;
+    obj.__row = i + 1; // 1-based spreadsheet row number, matches what a user sees in Excel
+    rows.push(obj);
+  }
+  return { rows, headers };
+}
+
+/* =========================================================================
+   VALIDATION
+   ========================================================================= */
+function validateMasterRows(rows, headers) {
+  const errors = [];
+  const missingCols = REQUIRED_MASTER_COLUMNS.filter(c => !headers.includes(c));
+  if (missingCols.length) {
+    errors.push('Missing required column' + (missingCols.length > 1 ? 's' : '') + ': ' + missingCols.join(', '));
+    return errors; // no point validating rows against a shape we know is wrong
+  }
+  if (!rows.length) {
+    errors.push('No data rows found below the header row.');
+    return errors;
+  }
+
+  const seenIds = new Map();
+  rows.forEach(r => {
+    const id = normKey(r.employee_id);
+    if (!id) { errors.push('Row ' + r.__row + ': employee_id is blank.'); return; }
+    if (!seenIds.has(id)) seenIds.set(id, []);
+    seenIds.get(id).push(r.__row);
+  });
+  seenIds.forEach((rowNums, id) => {
+    if (rowNums.length > 1) errors.push('Duplicate employee_id "' + id + '" on rows ' + rowNums.join(', ') + '.');
+  });
+
+  let badDates = 0, badDateExample = null;
+  rows.forEach(r => {
+    ['hire_date', 'last_promotion_date'].forEach(field => {
+      const raw = r[field];
+      if (raw !== null && raw !== undefined && raw !== '' && !parseDateCell(raw)) {
+        badDates++; if (!badDateExample) badDateExample = 'Row ' + r.__row + ': ' + field + ' "' + raw + '" does not parse as a date.';
+      }
+    });
+    if (normLower(r.employment_status) === 'terminated' && r.termination_date && !parseDateCell(r.termination_date)) {
+      badDates++; if (!badDateExample) badDateExample = 'Row ' + r.__row + ': termination_date "' + r.termination_date + '" does not parse as a date.';
+    }
+  });
+  if (badDates) errors.push(badDates + ' row(s) have unparseable dates. Example — ' + badDateExample);
+
+  return errors.length > 10 ? errors.slice(0, 10).concat('…and ' + (errors.length - 10) + ' more issue(s).') : errors;
+}
+
+function validateAiSheetPresence(workbook) {
+  const found = workbook.SheetNames.some(n => normLower(n) === normLower(AI_SHEET_NAME));
+  return found ? [] : ['Sheet "' + AI_SHEET_NAME + '" not found — using "' + workbook.SheetNames[0] + '" instead.'];
+}
+
+function validateAiRows(rows, headers) {
+  const errors = [];
+  const missingCols = AI_REQUIRED_COLUMNS.filter(c => !headers.includes(c));
+  if (missingCols.length) {
+    errors.push('Missing required column' + (missingCols.length > 1 ? 's' : '') + ': ' + missingCols.join(', '));
+    return errors;
+  }
+  if (!rows.length) errors.push('No data rows found below the header row.');
+  return errors;
+}
+
+/* Strip fields the dashboard must never display or aggregate, even if present
+   in the source file (Section 6 of the PRD). Defense-in-depth: computation
+   code below never reads these either. */
+function stripDemographics(row) {
+  const copy = Object.assign({}, row);
+  DEMOGRAPHIC_FIELDS.forEach(f => { delete copy[f]; });
+  return copy;
+}
+
+function buildMasterRecord(row) {
+  const r = stripDemographics(row);
+  return {
+    __row: row.__row,
+    employeeId: normKey(r.employee_id),
+    status: normKey(r.employment_status),
+    department: normKey(r.department) || 'Unspecified',
+    fn: normKey(r['function']) || 'Unspecified',
+    location: normKey(r.office_location) || 'Unspecified',
+    track: normKey(r.career_track),
+    level: normKey(r.career_level),
+    hireDate: parseDateCell(r.hire_date),
+    termDate: parseDateCell(r.termination_date),
+    termType: normKey(r.termination_type),
+    baseSalary: parseNumberCell(r.base_salary),
+    currency: normKey(r.currency) || 'USD',
+    compaRatio: parseNumberCell(r.compa_ratio),
+    rangePenetration: parseNumberCell(r.range_penetration),
+    targetBonusPct: parseNumberCell(r.target_bonus_pct),
+    lastPromotionDate: parseDateCell(r.last_promotion_date),
+    sourceOfHire: normKey(r.source_of_hire) || 'Unspecified',
+    tenureYears: parseNumberCell(r.tenure_years)
+  };
+}
+
+function buildAiRecord(row, dimensionKeys) {
+  const dims = {};
+  dimensionKeys.forEach(k => { dims[k] = parseNumberCell(row[k]); });
+  return {
+    __row: row.__row,
+    empId: normKey(row['Emp ID']),
+    name: normKey(row['Name']),
+    title: normKey(row['Title']),
+    level: normKey(row['Level']),
+    overallScore: parseNumberCell(row['Overall Score']),
+    tier: normKey(row['Tier']),
+    dims
+  };
+}
+/* =========================================================================
+   COMPUTE — shared helpers
+   ========================================================================= */
+function isActive(r) { return normLower(r.status) === 'active'; }
+
+function applyFilters(rows) {
+  return rows.filter(r =>
+    (!state.filters.department || r.department === state.filters.department) &&
+    (!state.filters.location || r.location === state.filters.location)
+  );
+}
+
+function distinctSorted(rows, keyFn) {
+  return Array.from(new Set(rows.map(keyFn).filter(v => v))).sort((a, b) => a.localeCompare(b));
+}
+
+/* "As of" date for trailing-12-month windows: the most recent hire/termination
+   date present in the data, per PRD 5.3 (not today's real-world date, since the
+   file may be uploaded well after it was exported). */
+function asOfDate(rows) {
+  let max = null;
+  rows.forEach(r => {
+    [r.hireDate, r.termDate].forEach(d => {
+      if (d && (!max || d > max)) max = d;
+    });
+  });
+  return max || new Date();
+}
+
+function activeHeadcountAt(rows, date) {
+  return rows.filter(r => r.hireDate && r.hireDate <= date && (!r.termDate || r.termDate > date)).length;
+}
+
+function turnoverForRows(rows) {
+  const asOf = asOfDate(rows);
+  const windowStart = addDays(asOf, -365);
+  const inWindow = rows.filter(r => r.termDate && r.termDate > windowStart && r.termDate <= asOf);
+  const voluntary = inWindow.filter(r => normLower(r.termType) === 'voluntary').length;
+  const involuntary = inWindow.filter(r => normLower(r.termType) === 'involuntary').length;
+  const startHc = activeHeadcountAt(rows, windowStart);
+  const endHc = activeHeadcountAt(rows, asOf);
+  const avgHc = (startHc + endHc) / 2 || 1;
+  return {
+    asOf, windowStart, voluntary, involuntary,
+    voluntaryRate: voluntary / avgHc,
+    involuntaryRate: involuntary / avgHc,
+    avgHc
+  };
+}
+
+/* =========================================================================
+   COMPUTE — Executive Dashboard
+   ========================================================================= */
+function computeExecutive(allRows) {
+  const rows = applyFilters(allRows);
+  const active = rows.filter(isActive);
+
+  const byDept = groupBy(active, r => r.department);
+  const headcountByDept = Array.from(byDept, ([k, v]) => ({ label: k, value: v.length }))
+    .sort((a, b) => b.value - a.value);
+
+  const byLoc = groupBy(active, r => r.location);
+  const headcountByLoc = Array.from(byLoc, ([k, v]) => ({ label: k, value: v.length }))
+    .sort((a, b) => b.value - a.value);
+
+  const byLevel = groupBy(active, r => r.level + '||' + r.track);
+  const levelMap = new Map();
+  byLevel.forEach((v, k) => {
+    const [level, track] = k.split('||');
+    if (!levelMap.has(level)) levelMap.set(level, { level, IC: 0, Mgmt: 0 });
+    const e = levelMap.get(level);
+    if (normLower(track) === 'ic') e.IC += v.length;
+    else if (normLower(track) === 'mgmt') e.Mgmt += v.length;
+    else e.IC += v.length;
+  });
+  const headcountByLevel = Array.from(levelMap.values()).sort((a, b) => levelSortIndex(a.level) - levelSortIndex(b.level));
+
+  const turnoverOverall = turnoverForRows(rows);
+  const turnoverByDept = Array.from(byDept.keys()).sort().map(dept => {
+    const t = turnoverForRows(rows.filter(r => r.department === dept));
+    return { department: dept, voluntaryRate: t.voluntaryRate, involuntaryRate: t.involuntaryRate };
+  });
+
+  return {
+    totalActive: active.length,
+    headcountByDept, headcountByLoc, headcountByLevel,
+    turnoverOverall, turnoverByDept,
+    departments: distinctSorted(allRows.filter(isActive), r => r.department),
+    locations: distinctSorted(allRows.filter(isActive), r => r.location)
+  };
+}
+
+/* =========================================================================
+   COMPUTE — Compensation & Recruitment
+   ========================================================================= */
+const COMPA_BINS = [
+  { label: '< 0.80', test: v => v < 0.80 },
+  { label: '0.80–0.90', test: v => v >= 0.80 && v < 0.90 },
+  { label: '0.90–1.00', test: v => v >= 0.90 && v < 1.00 },
+  { label: '1.00–1.10', test: v => v >= 1.00 && v < 1.10 },
+  { label: '1.10–1.20', test: v => v >= 1.10 && v < 1.20 },
+  { label: '≥ 1.20', test: v => v >= 1.20 }
+];
+const PENETRATION_BINS = [
+  { label: '0–20%', test: v => v >= 0 && v < 20 },
+  { label: '20–40%', test: v => v >= 20 && v < 40 },
+  { label: '40–60%', test: v => v >= 40 && v < 60 },
+  { label: '60–80%', test: v => v >= 60 && v < 80 },
+  { label: '80–100%', test: v => v >= 80 && v <= 100 }
+];
+
+function binDistribution(values, bins) {
+  return bins.map(b => ({ label: b.label, value: values.filter(v => v !== null && b.test(v)).length }));
+}
+
+function groupAvgByCurrency(rows, keyFn) {
+  const byCurrency = groupBy(rows.filter(r => r.baseSalary != null), r => r.currency);
+  const result = {};
+  byCurrency.forEach((crows, currency) => {
+    const byKey = groupBy(crows, keyFn);
+    result[currency] = Array.from(byKey, ([k, v]) => ({ label: k, avg: average(v.map(r => r.baseSalary)), count: v.length }));
+  });
+  return result;
+}
+
+function computeComp(allRows) {
+  const rows = applyFilters(allRows);
+  const active = rows.filter(isActive);
+  const asOf = asOfDate(rows);
+  const windowStart = addDays(asOf, -365);
+
+  const compaVals = active.map(r => r.compaRatio).filter(v => v != null);
+  const penVals = active.map(r => r.rangePenetration).filter(v => v != null).map(v => v <= 1 ? v * 100 : v);
+
+  const belowCompa = compaVals.length ? compaVals.filter(v => v < 0.90).length / compaVals.length : 0;
+
+  const salaryByDept = groupAvgByCurrency(active, r => r.department);
+  const salaryByLevel = groupAvgByCurrency(active, r => r.level);
+  const salaryByLocation = groupAvgByCurrency(active, r => r.location);
+
+  const bonusByLevel = Array.from(groupBy(active.filter(r => r.targetBonusPct != null), r => r.level), ([k, v]) =>
+    ({ level: k, avg: average(v.map(r => r.targetBonusPct)) })
+  ).sort((a, b) => levelSortIndex(a.level) - levelSortIndex(b.level));
+
+  const newHires = rows.filter(r => r.hireDate && r.hireDate > windowStart && r.hireDate <= asOf);
+  const newHiresByDept = Array.from(groupBy(newHires, r => r.department), ([k, v]) => ({ label: k, value: v.length }))
+    .sort((a, b) => b.value - a.value);
+  const sourceCounts = groupBy(newHires, r => r.sourceOfHire);
+  let sourceEntries = Array.from(sourceCounts, ([k, v]) => ({ label: k, value: v.length })).sort((a, b) => b.value - a.value);
+  if (sourceEntries.length > 6) {
+    const top = sourceEntries.slice(0, 5);
+    const other = sourceEntries.slice(5).reduce((a, e) => a + e.value, 0);
+    sourceEntries = top.concat({ label: 'Other', value: other });
+  }
+
+  const tenureByLevel = Array.from(groupBy(active, r => r.level), ([k, v]) => {
+    const tenures = v.map(r => r.tenureYears != null ? r.tenureYears : (r.hireDate ? (asOf - r.hireDate) / MS_PER_DAY / 365.25 : null))
+      .filter(t => t != null);
+    return { level: k, avg: average(tenures) };
+  }).sort((a, b) => levelSortIndex(a.level) - levelSortIndex(b.level));
+
+  const promotions = rows.filter(r => r.lastPromotionDate && r.lastPromotionDate > windowStart && r.lastPromotionDate <= asOf);
+  const promotionsByDept = Array.from(groupBy(promotions, r => r.department), ([k, v]) => ({ label: k, value: v.length }))
+    .sort((a, b) => b.value - a.value);
+
+  return {
+    asOf, windowStart,
+    compaDistribution: binDistribution(compaVals, COMPA_BINS),
+    penetrationDistribution: binDistribution(penVals, PENETRATION_BINS),
+    avgCompa: average(compaVals), belowCompaPct: belowCompa,
+    avgPenetration: average(penVals),
+    salaryByDept, salaryByLevel, salaryByLocation,
+    bonusByLevel,
+    newHiresCount: newHires.length, newHiresByDept, sourceEntries,
+    promotionsCount: promotions.length, promotionsByDept,
+    tenureByLevel
+  };
+}
+
+/* =========================================================================
+   COMPUTE — Learning & Development
+   ========================================================================= */
+function computeLd(aiRows) {
+  if (!aiRows.length) return null;
+  const dimKeys = Object.keys(aiRows[0].dims || {});
+  const avgOverall = average(aiRows.map(r => r.overallScore).filter(v => v != null));
+
+  // Tier labels aren't a fixed enum across source files (e.g. "Intermediate" vs.
+  // "Developing") — order and color them by each tier's own average Overall
+  // Score rather than assuming a specific named scale.
+  const tierGroups = groupBy(aiRows, r => r.tier || 'Unspecified');
+  const tierStats = Array.from(tierGroups, ([tier, rows]) => ({
+    tier, count: rows.length, avgScore: average(rows.map(r => r.overallScore).filter(v => v != null))
+  })).sort((a, b) => b.avgScore - a.avgScore);
+  const tierDistribution = tierStats.map(t => ({ label: t.tier, value: t.count }));
+  const tierRank = {};
+  tierStats.forEach((t, i) => { tierRank[t.tier] = tierStats.length > 1 ? i / (tierStats.length - 1) : 0; });
+
+  // Only compare dimensions that at least one person was actually scored on —
+  // a dimension nobody has data for isn't "weakest", it's unmeasured.
+  const dimensionAverages = dimKeys.map(k => {
+    const vals = aiRows.map(r => r.dims[k]).filter(v => v != null);
+    return { label: k, avg: average(vals), n: vals.length };
+  }).filter(d => d.n > 0);
+  dimensionAverages.sort((a, b) => b.avg - a.avg);
+  const strongest = dimensionAverages[0] || null;
+  const weakest = dimensionAverages[dimensionAverages.length - 1] || null;
+  const unmeasuredDims = dimKeys.filter(k => !dimensionAverages.some(d => d.label === k));
+
+  return { avgOverall, tierDistribution, tierRank, dimensionAverages, strongest, weakest, unmeasuredDims, count: aiRows.length, dimKeys };
+}
+/* =========================================================================
+   RENDER — generic chart / table helpers
+   ========================================================================= */
+function destroyChart(canvasId) {
+  if (state.charts[canvasId]) { state.charts[canvasId].destroy(); delete state.charts[canvasId]; }
+}
+
+/* One-series magnitude bar (sequential job — single hue, no legend needed). */
+function renderBarChart(canvasId, labels, values, opts) {
+  opts = opts || {};
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  state.charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: opts.label || '',
+        data: values,
+        backgroundColor: opts.color || COLORS.sequential,
+        borderRadius: { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 },
+        borderSkipped: false,
+        maxBarThickness: 24
+      }]
+    },
+    options: {
+      indexAxis: opts.horizontal ? 'y' : 'x',
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => (opts.tooltipSuffix ? c.parsed[opts.horizontal ? 'x' : 'y'] + opts.tooltipSuffix : c.formattedValue) } }
+      },
+      scales: {
+        x: { grid: { color: opts.horizontal ? COLORS.grid : 'transparent' }, ticks: { color: COLORS.inkMuted } },
+        y: { grid: { color: opts.horizontal ? 'transparent' : COLORS.grid }, ticks: { color: COLORS.inkMuted }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+/* Multi-series categorical bar (identity job — legend always shown). */
+function renderGroupedBarChart(canvasId, labels, series, opts) {
+  opts = opts || {};
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  state.charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: series.map((s, i) => ({
+        label: s.label,
+        data: s.data,
+        backgroundColor: s.color || COLORS.series[i % COLORS.series.length],
+        borderRadius: { topLeft: 4, topRight: 4, bottomLeft: 0, bottomRight: 0 },
+        borderSkipped: false,
+        maxBarThickness: 20
+      }))
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'top', align: 'end' },
+        tooltip: { callbacks: opts.tooltipCallback ? { label: opts.tooltipCallback } : {} }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: COLORS.inkMuted } },
+        y: { grid: { color: COLORS.grid }, ticks: { color: COLORS.inkMuted }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+/* Emphasis chart: one hue for most bars, accent/callout colors on named highlights. */
+function renderEmphasisChart(canvasId, entries, highlightMap) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+  const colors = entries.map(e => highlightMap[e.label] || '#C8CDD7');
+  state.charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: entries.map(e => e.label), datasets: [{ data: entries.map(e => e.avg), backgroundColor: colors, borderRadius: { topLeft: 4, topRight: 4 }, borderSkipped: false, maxBarThickness: 22 }] },
+    options: {
+      indexAxis: 'y',
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: COLORS.grid }, ticks: { color: COLORS.inkMuted } },
+        y: { grid: { display: false }, ticks: { color: COLORS.inkMuted } }
+      }
+    }
+  });
+}
+
+function renderTable(containerId, columns, rows, opts) {
+  opts = opts || {};
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const table = el('table', { class: 'data-table' });
+  const thead = el('thead');
+  const trh = el('tr');
+  columns.forEach(col => {
+    const th = el('th', { class: col.sortKey ? 'sortable' : '' }, [col.label + (col.sortKey && opts.sortState && opts.sortState.key === col.sortKey ? (opts.sortState.dir === 'asc' ? ' ▲' : ' ▼') : '')]);
+    if (col.sortKey && opts.onSort) th.addEventListener('click', () => opts.onSort(col.sortKey));
+    trh.appendChild(th);
+  });
+  thead.appendChild(trh);
+  table.appendChild(thead);
+  const tbody = el('tbody');
+  rows.forEach(r => {
+    const tr = el('tr');
+    columns.forEach(col => {
+      const val = col.render ? col.render(r) : r[col.key];
+      const td = el('td', { class: col.numeric ? 'num' : '' });
+      if (val instanceof Node) td.appendChild(val); else td.textContent = val == null ? '—' : val;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  container.innerHTML = '';
+  container.appendChild(table);
+  if (!rows.length) container.appendChild(el('div', { style: 'padding:16px;color:var(--slate);font-size:12px;' }, ['No rows match the current filters.']));
+}
+
+function kpiCard(label, value, opts) {
+  opts = opts || {};
+  const card = el('div', { class: 'kpi-card' + (opts.flag ? ' flag-' + opts.flag : '') });
+  card.appendChild(el('div', { class: 'label' }, [label]));
+  const valDiv = el('div', { class: 'value' }, [value]);
+  if (opts.unit) valDiv.appendChild(el('span', { class: 'unit' }, [opts.unit]));
+  card.appendChild(valDiv);
+  if (opts.sub) card.appendChild(el('div', { class: 'sub' }, [opts.sub]));
+  return card;
+}
+/* =========================================================================
+   RENDER — Executive Dashboard tab
+   ========================================================================= */
+function buildFilterBar(allData) {
+  const bar = el('div', { class: 'filter-bar' });
+  bar.appendChild(el('label', {}, ['Department']));
+  const deptSel = el('select', { id: 'filterDept' });
+  deptSel.appendChild(el('option', { value: '' }, ['All departments']));
+  allData.departments.forEach(d => {
+    const o = el('option', { value: d }, [d]);
+    if (state.filters.department === d) o.setAttribute('selected', 'selected');
+    deptSel.appendChild(o);
+  });
+  deptSel.addEventListener('change', () => { state.filters.department = deptSel.value; renderAll(); });
+  bar.appendChild(deptSel);
+
+  bar.appendChild(el('label', {}, ['Location']));
+  const locSel = el('select', { id: 'filterLoc' });
+  locSel.appendChild(el('option', { value: '' }, ['All locations']));
+  allData.locations.forEach(loc => {
+    const o = el('option', { value: loc }, [loc]);
+    if (state.filters.location === loc) o.setAttribute('selected', 'selected');
+    locSel.appendChild(o);
+  });
+  locSel.addEventListener('change', () => { state.filters.location = locSel.value; renderAll(); });
+  bar.appendChild(locSel);
+
+  if (state.filters.department || state.filters.location) {
+    const clear = el('button', { class: 'filter-clear', type: 'button' }, ['Clear filters']);
+    clear.addEventListener('click', () => { state.filters.department = ''; state.filters.location = ''; renderAll(); });
+    bar.appendChild(clear);
+  }
+  return bar;
+}
+
+function chartCard(title, desc, chartHtml, tableId, extra) {
+  const card = el('div', { class: 'card' });
+  const head = el('div', { class: 'card-head' });
+  head.appendChild(el('h3', {}, [title]));
+  const actions = el('div', { class: 'h-actions' });
+  const chartBtn = el('button', { class: 'toggle-btn active', type: 'button' }, ['Chart']);
+  const tableBtn = el('button', { class: 'toggle-btn', type: 'button' }, ['Table']);
+  actions.appendChild(chartBtn); actions.appendChild(tableBtn);
+  head.appendChild(actions);
+  card.appendChild(head);
+  if (desc) card.appendChild(el('div', { class: 'desc' }, [desc]));
+  const chartDiv = el('div', { class: 'chart-view' }, [chartHtml]);
+  const tableDiv = el('div', { class: 'table-view table-scroll', style: 'display:none;' });
+  tableDiv.id = tableId;
+  card.appendChild(chartDiv);
+  card.appendChild(tableDiv);
+  chartBtn.addEventListener('click', () => { chartDiv.style.display = ''; tableDiv.style.display = 'none'; chartBtn.classList.add('active'); tableBtn.classList.remove('active'); });
+  tableBtn.addEventListener('click', () => { chartDiv.style.display = 'none'; tableDiv.style.display = ''; tableBtn.classList.add('active'); chartBtn.classList.remove('active'); });
+  if (extra) card.appendChild(extra);
+  return card;
+}
+
+function canvasWrap(canvasId, opts) {
+  opts = opts || {};
+  const wrap = el('div', { class: 'chart-wrap' + (opts.short ? ' short' : '') });
+  wrap.appendChild(el('canvas', { id: canvasId }));
+  return wrap;
+}
+
+function renderExecutiveTab(allRows) {
+  const panel = document.getElementById('tab-executive');
+  panel.innerHTML = '';
+  const data = computeExecutive(allRows);
+
+  const header = el('div', { class: 'panel-header' });
+  const titles = el('div');
+  titles.appendChild(el('div', { class: 'eyebrow' }, ['Leadership Review']));
+  titles.appendChild(el('h1', {}, ['Executive Dashboard']));
+  header.appendChild(titles);
+  header.appendChild(buildFilterBar(data));
+  panel.appendChild(header);
+
+  const kpis = el('div', { class: 'kpi-strip' });
+  kpis.appendChild(kpiCard('Active Headcount', fmtInt(data.totalActive)));
+  kpis.appendChild(kpiCard('Voluntary Turnover (TTM)', fmtPct(data.turnoverOverall.voluntaryRate),
+    { flag: data.turnoverOverall.voluntaryRate > 0.15 ? 'critical' : (data.turnoverOverall.voluntaryRate > 0.10 ? 'warning' : 'good') }));
+  kpis.appendChild(kpiCard('Involuntary Turnover (TTM)', fmtPct(data.turnoverOverall.involuntaryRate)));
+  kpis.appendChild(kpiCard('Departments', fmtInt(data.headcountByDept.length)));
+  kpis.appendChild(kpiCard('Locations', fmtInt(data.headcountByLoc.length)));
+  panel.appendChild(kpis);
+
+  const grid = el('div', { class: 'card-grid' });
+  panel.appendChild(grid); // attach before populating: chart/table renderers below look elements up via getElementById
+
+  grid.appendChild(chartCard('Headcount by Department', 'Active employees only.', canvasWrap('chartHcDept'), 'tableHcDept'));
+  renderBarChart('chartHcDept', data.headcountByDept.map(d => d.label), data.headcountByDept.map(d => d.value));
+  renderTable('tableHcDept', [{ label: 'Department', key: 'label' }, { label: 'Headcount', key: 'value', numeric: true }], data.headcountByDept);
+
+  grid.appendChild(chartCard('Headcount by Location', 'Active employees only.', canvasWrap('chartHcLoc'), 'tableHcLoc'));
+  renderBarChart('chartHcLoc', data.headcountByLoc.map(d => d.label), data.headcountByLoc.map(d => d.value));
+  renderTable('tableHcLoc', [{ label: 'Location', key: 'label' }, { label: 'Headcount', key: 'value', numeric: true }], data.headcountByLoc);
+
+  grid.appendChild(chartCard('Headcount by Level', 'Career level, split by track (IC vs. Mgmt).', canvasWrap('chartHcLevel'), 'tableHcLevel'));
+  renderGroupedBarChart('chartHcLevel', data.headcountByLevel.map(d => d.level),
+    [{ label: 'IC', data: data.headcountByLevel.map(d => d.IC) }, { label: 'Mgmt', data: data.headcountByLevel.map(d => d.Mgmt) }]);
+  renderTable('tableHcLevel', [{ label: 'Level', key: 'level' }, { label: 'IC', key: 'IC', numeric: true }, { label: 'Mgmt', key: 'Mgmt', numeric: true }], data.headcountByLevel);
+
+  const turnoverFormula = el('div', { class: 'formula-box' }, [
+    el('div', { class: 'formula-label' }, ['Formula']),
+    el('div', { class: 'formula' }, ['turnover rate = terminations (by type, trailing 12mo) ÷ average active headcount over the same window']),
+    el('div', { style: 'margin-top:6px;color:var(--slate);' }, ['Window: ' + fmtDate(data.turnoverOverall.windowStart) + ' → ' + fmtDate(data.turnoverOverall.asOf) + ' (most recent hire/termination date in the file)'])
+  ]);
+  grid.appendChild(chartCard('Turnover by Department', 'Voluntary vs. involuntary, trailing 12 months.', canvasWrap('chartTurnover'), 'tableTurnover', turnoverFormula));
+  renderGroupedBarChart('chartTurnover', data.turnoverByDept.map(d => d.department),
+    [{ label: 'Voluntary', data: data.turnoverByDept.map(d => +(d.voluntaryRate * 100).toFixed(1)) },
+     { label: 'Involuntary', data: data.turnoverByDept.map(d => +(d.involuntaryRate * 100).toFixed(1)) }],
+    { tooltipCallback: (c) => c.dataset.label + ': ' + c.formattedValue + '%' });
+  renderTable('tableTurnover', [
+    { label: 'Department', key: 'department' },
+    { label: 'Voluntary', numeric: true, render: r => fmtPct(r.voluntaryRate) },
+    { label: 'Involuntary', numeric: true, render: r => fmtPct(r.involuntaryRate) }
+  ], data.turnoverByDept);
+}
+/* =========================================================================
+   RENDER — Learning & Development tab
+   ========================================================================= */
+function ldFilteredSortedRows(aiRows) {
+  let rows = aiRows.slice();
+  const search = normLower(state.ldFilters.search);
+  if (search) rows = rows.filter(r => normLower(r.name).includes(search) || normLower(r.title).includes(search));
+  if (state.ldFilters.tier) rows = rows.filter(r => r.tier === state.ldFilters.tier);
+  const key = state.ldSort.key, dir = state.ldSort.dir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    const av = key === 'overallScore' ? a.overallScore : a[key];
+    const bv = key === 'overallScore' ? b.overallScore : b[key];
+    if (av == null) return 1; if (bv == null) return -1;
+    if (typeof av === 'number') return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+  return rows;
+}
+
+function renderLdTab(aiRows) {
+  const panel = document.getElementById('tab-ld');
+  panel.innerHTML = '';
+
+  const header = el('div', { class: 'panel-header' });
+  const titles = el('div');
+  titles.appendChild(el('div', { class: 'eyebrow' }, ['People Function']));
+  titles.appendChild(el('h1', {}, ['Learning & Development']));
+  header.appendChild(titles);
+  panel.appendChild(header);
+
+  if (!aiRows.length) {
+    panel.appendChild(el('div', { class: 'empty-state' }, [
+      el('div', { class: 'es-icon' }, ['📊']),
+      el('h3', {}, ['No AI Readiness data loaded']),
+      el('p', {}, ['Upload the AI Readiness Results workbook using the control at the top of the page, then click Update. This tab will populate once that file is processed — the other two tabs are unaffected.'])
+    ]));
+    return;
+  }
+
+  const data = computeLd(aiRows);
+
+  const kpis = el('div', { class: 'kpi-strip' });
+  kpis.appendChild(kpiCard('Avg Overall Score', data.avgOverall.toFixed(0)));
+  kpis.appendChild(kpiCard('People Assessed', fmtInt(data.count)));
+  if (data.strongest) kpis.appendChild(kpiCard('Strongest Dimension', data.strongest.label, { flag: 'good', sub: data.strongest.avg.toFixed(0) + ' avg' }));
+  if (data.weakest) kpis.appendChild(kpiCard('Weakest Dimension', data.weakest.label, { flag: 'warning', sub: data.weakest.avg.toFixed(0) + ' avg' }));
+  panel.appendChild(kpis);
+
+  const grid = el('div', { class: 'card-grid' });
+  panel.appendChild(grid);
+
+  grid.appendChild(chartCard('Tier Distribution', 'Overall Score, bucketed into readiness tiers.', canvasWrap('chartTier'), 'tableTier'));
+  renderBarChart('chartTier', data.tierDistribution.map(d => d.label), data.tierDistribution.map(d => d.value));
+  renderTable('tableTier', [{ label: 'Tier', key: 'label' }, { label: 'Count', key: 'value', numeric: true }], data.tierDistribution);
+
+  const highlightMap = {};
+  if (data.strongest) highlightMap[data.strongest.label] = COLORS.good;
+  if (data.weakest) highlightMap[data.weakest.label] = COLORS.warning;
+  grid.appendChild(chartCard('Dimension Breakdown', 'Average score per dimension — strongest in green, weakest in amber.', canvasWrap('chartDims', { short: false }), 'tableDims'));
+  renderEmphasisChart('chartDims', data.dimensionAverages, highlightMap);
+  renderTable('tableDims', [{ label: 'Dimension', key: 'label' }, { label: 'Avg Score', numeric: true, render: r => r.avg.toFixed(1) }], data.dimensionAverages);
+  if (data.unmeasuredDims.length) {
+    grid.lastChild.appendChild(el('div', { class: 'note-band', style: 'margin-top:12px;' }, [
+      el('b', {}, ['Not scored: ']), data.unmeasuredDims.join(', ') + ' — no individuals in this file have a value for these dimensions.'
+    ]));
+  }
+
+  const indivCard = el('div', { class: 'card' });
+  indivCard.appendChild(el('div', { class: 'card-head' }, [el('h3', {}, ['Individual Results'])]));
+  indivCard.appendChild(el('div', { class: 'desc' }, ['Sensitive — visible only in this session and in the downloaded report.']));
+
+  const searchRow = el('div', { class: 'search-row' });
+  const searchInput = el('input', { type: 'text', placeholder: 'Search name or title…' });
+  searchInput.value = state.ldFilters.search;
+  searchInput.addEventListener('input', () => { state.ldFilters.search = searchInput.value; renderLdTab(state.aiRows); });
+  const tierSelect = el('select');
+  tierSelect.appendChild(el('option', { value: '' }, ['All tiers']));
+  data.tierDistribution.map(t => t.label).forEach(t => {
+    const o = el('option', { value: t }, [t]);
+    if (state.ldFilters.tier === t) o.setAttribute('selected', 'selected');
+    tierSelect.appendChild(o);
+  });
+  tierSelect.addEventListener('change', () => { state.ldFilters.tier = tierSelect.value; renderLdTab(state.aiRows); });
+  searchRow.appendChild(searchInput); searchRow.appendChild(tierSelect);
+  indivCard.appendChild(searchRow);
+
+  const tableDiv = el('div', { class: 'table-scroll' });
+  tableDiv.id = 'tableIndividuals';
+  indivCard.appendChild(tableDiv);
+  panel.appendChild(indivCard);
+
+  const rows = ldFilteredSortedRows(aiRows);
+  renderTable('tableIndividuals', [
+    { label: 'Name', key: 'name', sortKey: 'name' },
+    { label: 'Title', key: 'title', sortKey: 'title' },
+    { label: 'Level', key: 'level', sortKey: 'level' },
+    { label: 'Overall Score', numeric: true, sortKey: 'overallScore', render: r => r.overallScore != null ? r.overallScore.toFixed(0) : '—' },
+    { label: 'Tier', render: r => { const b = el('span', { class: 'badge ' + tierClassByRank(data.tierRank[r.tier]) }, [r.tier || '—']); return b; } }
+  ], rows, { sortState: state.ldSort, onSort: (key) => {
+    if (state.ldSort.key === key) state.ldSort.dir = state.ldSort.dir === 'asc' ? 'desc' : 'asc';
+    else { state.ldSort.key = key; state.ldSort.dir = 'desc'; }
+    renderLdTab(state.aiRows);
+  } });
+}
+/* =========================================================================
+   RENDER — Compensation & Recruitment tab
+   ========================================================================= */
+function renderCurrencySalaryBlock(container, title, groupedByCurrency, dimLabel) {
+  const block = el('div');
+  block.appendChild(el('div', { class: 'card-head' }, [el('h3', {}, [title])]));
+  const currencies = Object.keys(groupedByCurrency).sort();
+  if (!currencies.length) { block.appendChild(el('div', { class: 'desc' }, ['No salary data available.'])); container.appendChild(block); return; }
+  currencies.forEach(cur => {
+    const sub = el('div', { class: 'currency-block' });
+    sub.appendChild(el('div', { class: 'cb-title' }, [cur]));
+    const tableId = 'salary-' + title.replace(/\s+/g, '') + '-' + cur;
+    const div = el('div'); div.id = tableId;
+    sub.appendChild(div);
+    block.appendChild(sub);
+    container.appendChild(block);
+    renderTable(tableId, [
+      { label: dimLabel, key: 'label' },
+      { label: 'Avg Base Salary', numeric: true, render: r => fmtMoney(r.avg, cur) },
+      { label: 'Headcount', key: 'count', numeric: true }
+    ], groupedByCurrency[cur].sort((a, b) => b.avg - a.avg));
+  });
+}
+
+function renderCompTab(allRows) {
+  const panel = document.getElementById('tab-comp');
+  panel.innerHTML = '';
+  const data = computeComp(allRows);
+  const execData = computeExecutive(allRows); // reuse for shared department/location filter options
+
+  const header = el('div', { class: 'panel-header' });
+  const titles = el('div');
+  titles.appendChild(el('div', { class: 'eyebrow' }, ['Total Rewards & Talent Acquisition']));
+  titles.appendChild(el('h1', {}, ['Compensation & Recruitment']));
+  header.appendChild(titles);
+  header.appendChild(buildFilterBar(execData));
+  panel.appendChild(header);
+
+  const kpis = el('div', { class: 'kpi-strip' });
+  kpis.appendChild(kpiCard('Avg Compa-Ratio', data.avgCompa.toFixed(2)));
+  kpis.appendChild(kpiCard('Below 0.90 Compa-Ratio', fmtPct(data.belowCompaPct),
+    { flag: data.belowCompaPct > 0.15 ? 'critical' : (data.belowCompaPct > 0.05 ? 'warning' : 'good'), sub: 'Standard below-range pay flag' }));
+  kpis.appendChild(kpiCard('Avg Range Penetration', data.avgPenetration.toFixed(0), { unit: '%' }));
+  kpis.appendChild(kpiCard('New Hires (TTM)', fmtInt(data.newHiresCount)));
+  kpis.appendChild(kpiCard('Promotions (TTM)', fmtInt(data.promotionsCount)));
+  panel.appendChild(kpis);
+
+  panel.appendChild(el('h3', { class: 'serif', style: 'font-size:16px;color:var(--navy);margin:4px 0 10px 0;' }, ['Compensation']));
+  const compGrid = el('div', { class: 'card-grid thirds' });
+  panel.appendChild(compGrid);
+
+  compGrid.appendChild(chartCard('Compa-Ratio Distribution', 'Active employees.', canvasWrap('chartCompa', { short: true }), 'tableCompa'));
+  renderBarChart('chartCompa', data.compaDistribution.map(d => d.label), data.compaDistribution.map(d => d.value));
+  renderTable('tableCompa', [{ label: 'Bucket', key: 'label' }, { label: 'Count', key: 'value', numeric: true }], data.compaDistribution);
+
+  compGrid.appendChild(chartCard('Range Penetration Distribution', 'Active employees.', canvasWrap('chartPenetration', { short: true }), 'tablePenetration'));
+  renderBarChart('chartPenetration', data.penetrationDistribution.map(d => d.label), data.penetrationDistribution.map(d => d.value));
+  renderTable('tablePenetration', [{ label: 'Bucket', key: 'label' }, { label: 'Count', key: 'value', numeric: true }], data.penetrationDistribution);
+
+  compGrid.appendChild(chartCard('Bonus Target % by Level', 'Average target bonus, active employees.', canvasWrap('chartBonus', { short: true }), 'tableBonus'));
+  renderBarChart('chartBonus', data.bonusByLevel.map(d => d.level), data.bonusByLevel.map(d => +(d.avg * 100).toFixed(1)), { tooltipSuffix: '%' });
+  renderTable('tableBonus', [{ label: 'Level', key: 'level' }, { label: 'Avg Target Bonus', numeric: true, render: r => fmtPct(r.avg) }], data.bonusByLevel);
+
+  const salaryCard = el('div', { class: 'card' });
+  salaryCard.appendChild(el('div', { class: 'desc' }, ['Grouped by currency — figures are never summed or averaged across currencies.']));
+  const salaryGrid = el('div', { class: 'card-grid thirds' });
+  const c1 = el('div'), c2 = el('div'), c3 = el('div');
+  salaryGrid.appendChild(c1); salaryGrid.appendChild(c2); salaryGrid.appendChild(c3);
+  salaryCard.appendChild(salaryGrid);
+  panel.appendChild(salaryCard);
+  renderCurrencySalaryBlock(c1, 'Avg Base Salary by Department', data.salaryByDept, 'Department');
+  renderCurrencySalaryBlock(c2, 'Avg Base Salary by Level', data.salaryByLevel, 'Level');
+  renderCurrencySalaryBlock(c3, 'Avg Base Salary by Location', data.salaryByLocation, 'Location');
+
+  panel.appendChild(el('h3', { class: 'serif', style: 'font-size:16px;color:var(--navy);margin:20px 0 10px 0;' }, ['Recruitment']));
+  const recGrid = el('div', { class: 'card-grid' });
+  panel.appendChild(recGrid);
+
+  recGrid.appendChild(chartCard('New Hires by Department (TTM)', 'By hire_date, trailing 12 months.', canvasWrap('chartNewHires'), 'tableNewHires'));
+  renderBarChart('chartNewHires', data.newHiresByDept.map(d => d.label), data.newHiresByDept.map(d => d.value), { color: COLORS.series[1] });
+  renderTable('tableNewHires', [{ label: 'Department', key: 'label' }, { label: 'New Hires', key: 'value', numeric: true }], data.newHiresByDept);
+
+  recGrid.appendChild(chartCard('New Hires by Source (TTM)', 'Top sources; smaller sources folded into "Other".', canvasWrap('chartSource'), 'tableSource'));
+  renderBarChart('chartSource', data.sourceEntries.map(d => d.label), data.sourceEntries.map(d => d.value), { color: COLORS.series[2] });
+  renderTable('tableSource', [{ label: 'Source', key: 'label' }, { label: 'New Hires', key: 'value', numeric: true }], data.sourceEntries);
+
+  recGrid.appendChild(chartCard('Avg Tenure by Level', 'Years, active employees.', canvasWrap('chartTenure'), 'tableTenure'));
+  renderBarChart('chartTenure', data.tenureByLevel.map(d => d.level), data.tenureByLevel.map(d => +d.avg.toFixed(1)), { tooltipSuffix: ' yrs' });
+  renderTable('tableTenure', [{ label: 'Level', key: 'level' }, { label: 'Avg Tenure (yrs)', numeric: true, render: r => r.avg.toFixed(1) }], data.tenureByLevel);
+
+  recGrid.appendChild(chartCard('Recent Promotions by Department (TTM)', 'By last_promotion_date, trailing 12 months.', canvasWrap('chartPromo'), 'tablePromo'));
+  renderBarChart('chartPromo', data.promotionsByDept.map(d => d.label), data.promotionsByDept.map(d => d.value), { color: COLORS.series[3] });
+  renderTable('tablePromo', [{ label: 'Department', key: 'label' }, { label: 'Promotions', key: 'value', numeric: true }], data.promotionsByDept);
+
+  panel.appendChild(el('div', { class: 'note-band' }, [
+    el('b', {}, ['V2 note: ']), 'Deeper recruiting funnel metrics (time-to-fill, offer acceptance, pipeline by stage) require the separate Recruiting Funnel file and are not computed here.'
+  ]));
+}
+/* =========================================================================
+   RENDER — dispatch / status / empty states
+   ========================================================================= */
+function renderEmptyMasterState(panelId, title) {
+  const panel = document.getElementById(panelId);
+  panel.innerHTML = '';
+  const header = el('div', { class: 'panel-header' });
+  const titles = el('div');
+  titles.appendChild(el('div', { class: 'eyebrow' }, ['Leadership Review']));
+  titles.appendChild(el('h1', {}, [title]));
+  header.appendChild(titles);
+  panel.appendChild(header);
+  panel.appendChild(el('div', { class: 'empty-state' }, [
+    el('div', { class: 'es-icon' }, ['📁']),
+    el('h3', {}, ['No employee data loaded']),
+    el('p', {}, ['Upload the Employee Master file (.xlsx or .csv) using the control at the top of the page, then click Update.'])
+  ]));
+}
+
+function updateStatusBox() {
+  const box = document.getElementById('statusBox');
+  box.innerHTML = '';
+  box.appendChild(el('div', { class: 'label' }, ['Data currently loaded']));
+  if (!state.masterFileName && !state.aiFileName) {
+    box.appendChild(el('div', { class: 'line muted' }, ['No files loaded yet']));
+    return;
+  }
+  if (state.masterFileName) box.appendChild(el('div', { class: 'line' }, ['Master: ' + state.masterFileName]));
+  if (state.aiFileName) box.appendChild(el('div', { class: 'line' }, ['AI Readiness: ' + state.aiFileName]));
+  if (state.lastUpdated) box.appendChild(el('div', { class: 'line muted' }, ['Updated ' + state.lastUpdated.toLocaleString('en-US')]));
+}
+
+function renderAll() {
+  updateStatusBox();
+  if (state.masterRows.length) {
+    renderExecutiveTab(state.masterRows);
+    renderCompTab(state.masterRows);
+  } else {
+    renderEmptyMasterState('tab-executive', 'Executive Dashboard');
+    renderEmptyMasterState('tab-comp', 'Compensation & Recruitment');
+  }
+  renderLdTab(state.aiRows);
+  document.getElementById('downloadBtn').disabled = !state.masterRows.length;
+}
+
+/* =========================================================================
+   TAB NAVIGATION
+   ========================================================================= */
+function switchTab(tabId) {
+  state.activeTab = tabId;
+  $all('.nav-item').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+  $all('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === 'tab-' + tabId));
+  // Charts rendered while their tab was hidden (display:none) size to zero;
+  // force a resize now that the container has real layout dimensions.
+  requestAnimationFrame(() => {
+    Object.values(state.charts).forEach(c => { try { c.resize(); } catch (e) {} });
+  });
+}
+$all('.nav-item').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+/* =========================================================================
+   ERROR BANNER
+   ========================================================================= */
+function showErrors(groups) {
+  const banner = document.getElementById('errorBanner');
+  const list = document.getElementById('errorBannerList');
+  document.getElementById('errorBannerTitle').textContent = 'Some files could not be fully processed';
+  list.innerHTML = '';
+  groups.forEach(g => {
+    const li = el('li', {}, [el('b', {}, [g.title + ': ']), document.createTextNode(g.messages.join(' '))]);
+    list.appendChild(li);
+  });
+  banner.classList.add('show');
+}
+function clearError() {
+  document.getElementById('errorBanner').classList.remove('show');
+}
+
+/* =========================================================================
+   FILE STAGING
+   ========================================================================= */
+function updateUpdateButton() {
+  document.getElementById('updateBtn').disabled = !(state.masterFile || state.aiFile);
+}
+document.getElementById('masterFileInput').addEventListener('change', (e) => {
+  state.masterFile = e.target.files[0] || null;
+  const chip = document.getElementById('masterFileChip');
+  chip.textContent = state.masterFile ? state.masterFile.name : 'required — none loaded';
+  chip.classList.toggle('loaded', !!state.masterFile);
+  updateUpdateButton();
+});
+document.getElementById('aiFileInput').addEventListener('change', (e) => {
+  state.aiFile = e.target.files[0] || null;
+  const chip = document.getElementById('aiFileChip');
+  chip.textContent = state.aiFile ? state.aiFile.name : 'optional — none loaded';
+  chip.classList.toggle('loaded', !!state.aiFile);
+  updateUpdateButton();
+});
+
+/* =========================================================================
+   UPDATE — parse + validate whatever is currently staged, then re-render
+   ========================================================================= */
+async function handleUpdate() {
+  const updateBtn = document.getElementById('updateBtn');
+  const originalLabel = updateBtn.textContent;
+  updateBtn.disabled = true;
+  updateBtn.textContent = 'Processing…';
+  const errorGroups = [];
+
+  if (state.masterFile) {
+    try {
+      const wb = await readFileAsWorkbook(state.masterFile);
+      const sheet = pickSheet(wb, MASTER_SHEET_NAME);
+      const { rows, headers } = sheetToRowObjects(sheet, REQUIRED_MASTER_COLUMNS);
+      const rowErrors = validateMasterRows(rows, headers);
+      if (rowErrors.length) {
+        errorGroups.push({ title: 'Employee Master — "' + state.masterFile.name + '"', messages: rowErrors });
+      } else {
+        state.masterRows = rows.map(buildMasterRecord);
+        state.masterFileName = state.masterFile.name;
+      }
+    } catch (err) {
+      errorGroups.push({ title: 'Employee Master', messages: [err.message] });
+    }
+  }
+
+  if (state.aiFile) {
+    try {
+      const wb = await readFileAsWorkbook(state.aiFile);
+      const sheet = pickSheet(wb, AI_SHEET_NAME);
+      const { rows, headers } = sheetToRowObjects(sheet, AI_REQUIRED_COLUMNS);
+      const rowErrors = validateAiRows(rows, headers);
+      if (rowErrors.length) {
+        errorGroups.push({ title: 'AI Readiness Results — "' + state.aiFile.name + '"', messages: rowErrors });
+      } else {
+        const dimensionKeys = headers.filter(h => h && !AI_REQUIRED_COLUMNS.includes(h));
+        state.aiRows = rows.map(r => buildAiRecord(r, dimensionKeys));
+        state.aiFileName = state.aiFile.name;
+      }
+    } catch (err) {
+      errorGroups.push({ title: 'AI Readiness Results', messages: [err.message] });
+    }
+  }
+
+  state.lastUpdated = new Date();
+  if (errorGroups.length) showErrors(errorGroups); else clearError();
+  renderAll();
+
+  updateBtn.disabled = !(state.masterFile || state.aiFile);
+  updateBtn.textContent = originalLabel;
+}
+document.getElementById('updateBtn').addEventListener('click', handleUpdate);
+
+/* =========================================================================
+   DOWNLOAD REPORT
+   ========================================================================= */
+async function downloadReport() {
+  const btn = document.getElementById('downloadBtn');
+  const originalTab = state.activeTab;
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 36;
+
+    doc.setFontSize(10);
+    doc.setTextColor(90, 100, 120);
+    doc.text('MERIDIAN ANALYTICS', margin, 90);
+    doc.setFontSize(24);
+    doc.setTextColor(30, 58, 95);
+    doc.text('HR People Dashboard — Report Snapshot', margin, 128);
+    doc.setFontSize(11);
+    doc.setTextColor(90, 100, 120);
+    doc.text('Generated: ' + state.lastUpdated.toLocaleString('en-US'), margin, 162);
+    doc.text('Employee Master file: ' + (state.masterFileName || '—'), margin, 182);
+    doc.text('AI Readiness file: ' + (state.aiFileName || 'not loaded'), margin, 202);
+    doc.text(
+      (state.filters.department || state.filters.location)
+        ? 'Active filters — Department: ' + (state.filters.department || 'All') + ', Location: ' + (state.filters.location || 'All')
+        : 'No filters applied — showing all data',
+      margin, 222
+    );
+
+    const tabs = [
+      { id: 'executive', title: 'Executive Dashboard' },
+      { id: 'ld', title: 'Learning & Development' },
+      { id: 'comp', title: 'Compensation & Recruitment' }
+    ];
+    for (const tab of tabs) {
+      switchTab(tab.id);
+      await new Promise(r => setTimeout(r, 60));
+      const panel = document.getElementById('tab-' + tab.id);
+
+      // html2canvas re-renders the DOM inside a cloned iframe; it can't safely
+      // re-read pixel data from a live Chart.js <canvas> there (shows as a
+      // blank box). Swap each chart canvas for a plain <img> snapshot of
+      // itself first, so what gets captured is the actual chart.
+      const swaps = [];
+      $all('canvas', panel).forEach(canvasEl => {
+        const chart = Object.values(state.charts).find(c => c.canvas === canvasEl);
+        if (!chart) return;
+        const img = document.createElement('img');
+        img.src = chart.toBase64Image();
+        img.style.width = canvasEl.offsetWidth + 'px';
+        img.style.height = canvasEl.offsetHeight + 'px';
+        const parent = canvasEl.parentNode;
+        const nextSibling = canvasEl.nextSibling;
+        parent.removeChild(canvasEl); // fully detach, not just hide — html2canvas still tries to read display:none canvases
+        parent.insertBefore(img, nextSibling);
+        swaps.push({ canvasEl, img, parent, nextSibling });
+      });
+
+      const canvas = await html2canvas(panel, { backgroundColor: '#FAF8F4', scale: 2 });
+
+      swaps.forEach(({ canvasEl, img, parent, nextSibling }) => { parent.insertBefore(canvasEl, nextSibling); img.remove(); });
+
+      doc.addPage();
+      doc.setFontSize(16);
+      doc.setTextColor(30, 58, 95);
+      doc.text(tab.title, margin, 40);
+      let imgW = pageW - margin * 2;
+      let imgH = imgW * (canvas.height / canvas.width);
+      const maxH = pageH - 60 - margin;
+      if (imgH > maxH) { imgH = maxH; imgW = imgH * (canvas.width / canvas.height); }
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', margin, 55, imgW, imgH);
+    }
+    switchTab(originalTab);
+    doc.save('Meridian_HR_Dashboard_Report.pdf');
+  } catch (err) {
+    alert('Could not generate the report: ' + err.message);
+  } finally {
+    btn.disabled = !state.masterRows.length;
+    btn.textContent = originalLabel;
+  }
+}
+document.getElementById('downloadBtn').addEventListener('click', downloadReport);
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+renderAll();
+</script>
+</body>
+</html>
